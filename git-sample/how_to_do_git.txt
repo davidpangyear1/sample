@@ -10,7 +10,7 @@ If git repo not exist in local:
 2)cd ./<folder>
 
 3)do things locally...(edit, add, commit, etc.)
-4)git push origin <branch>
+4)git push origin <branch> # or git push origin <local branch>:<remote branch>
 
 ================edit git================
 git branch            # view all branch
