@@ -1,0 +1,32 @@
+================communicate with github================
+0)cd <development folder>
+
+If git repo already exist in local:
+1)cd ./<folder> 
+2)git fetch origin
+
+If git repo not exist in local:
+1)git clone <url of repository>
+2)cd ./<folder>
+
+3)do things locally...(edit, add, commit, etc.)
+4)git push origin <branch>
+
+================edit git================
+git branch            # view all branch
+git branch temp       # create branch temp
+git checkout temp     # switch working branch (to temp)
+
+# now you can add, edit, delete files!!!!
+
+git add my_file       # staging my_file
+git status            # can see files waiting for commit
+git commit -m "my comment for this commit!"
+
+# git rebase master   # obtain master current status to temp, only when worrying someone would affect the master branch after I branched out temp
+git checkout master   # switch back working branch to master
+git merge temp
+git branch -d temp    # delete branch temp
+
+================git GUI================
+gitk &                # '&' can create a new thread, such that the console window is still responsive.
