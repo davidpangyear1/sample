@@ -4,6 +4,7 @@
 #include <unistd.h> /* provide the sleep function */
 
 void *my_func(void *ptr);
+long get_tid();
 
 int STATUS_A = 1;
 int STATUS_B = 2;
@@ -72,4 +73,14 @@ void *my_func(void *ptr){
      * You must NOT return pointer of local variable!!!
      */
     return (void *)&STATUS_A;
+}
+
+/*
+ * get pointer of current thread as thread id
+ */
+long get_tid() {
+    pthread_t self_t;
+    self_t = pthread_self();
+    long ret = (long)&self_t;
+    return ret;
 }
