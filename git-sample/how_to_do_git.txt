@@ -3,7 +3,7 @@
 1)
 If git repo already exist in local:
     a)cd ./<folder> 
-    b)git fetch origin development # a local branch 'development' will be created
+    b)git pull origin development # or fetch if local 'development' branch not exit. In this case, a local branch 'development' will be created.
 
 If git repo not exist in local:
     a)git clone <url of repository>
@@ -18,7 +18,7 @@ git branch temp       # create branch temp
 git checkout temp     # switch working branch (to temp)
 
 # now you can add, edit, delete files!!!!
-# after you have done your edit,...
+# after you have done your edit...
 
 git add my_file       # staging my_file, do this each by each! Use '--all' can quickly do staging, but not recommended
 git status            # see files waiting for commit
