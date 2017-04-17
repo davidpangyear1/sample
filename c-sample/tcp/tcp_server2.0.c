@@ -8,14 +8,17 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <string.h>
 
 const int DEFAULT_PORT = 12345;
 const int BACKLOG = 5; /* Refuse connection if <BACKLOG> connection requests are waiting for accept */
 const int MAX_CLIENT = 10;
+char *MESSAGE = "HELLO\n";
 
 void *connectionHandler(void *arg_ptr);
 char *getSocketAddr(int sock);
 int getSocketPort(int sock);
+long get_tid();
 void error(char *msg, int error_no) {
     printf("Error: %d,%s\n", error_no, msg);
     exit(1);    /* 1 is passed to parent process */
@@ -117,23 +120,22 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void *connectionHandler(void *arg_ptr) {
+void *connectionHandler(void *sock_ptr) {
     long tid = get_tid();
     printf("%ld:Enter connection handler...\n", tid);
-    int sock_c = *((int *)arg_ptr);
+    int sock = *((int *)sock_ptr);
 
     /* Send message */
-    char *msg = "HELLO\n";
-    printf("%ld:Send %s...\n", tid, msg);
-    int n = write(sock_c, msg, 6);
+    /* printf("%ld:Send %s...\n", tid, msg); */
+    int n = write(sock, MESSAGE, (strlen(MESSAGE) + 1) * sizeof(char));
     if (n < 0) {
-        close(sock_c);
+        close(sock);
         fprintf(stderr, "%ld:Error on connection handler, %d\n", tid, errno);
         return (void *)(&errno);
     }
 
     printf("%ld:Close client connection...\n", tid);
-    close(sock_c);
+    close(sock);
 }
 
 char *getSocketAddr(int sock) {
@@ -165,4 +167,14 @@ int getSocketPort(int sock) {
     } else {
         return -1;
     }
+}
+
+/*
+ * get the pointer of current thread as thread id
+ */
+long get_tid() {
+    pthread_t self_t;
+    self_t = pthread_self();
+    long ret = (long)&self_t;
+    return ret;
 }
