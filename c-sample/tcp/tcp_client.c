@@ -27,7 +27,6 @@ int main() {
 
     printf("Receive message...\n");
     char buf[32];
-    memset(buf, 0, sizeof(buf));
     int n = read(sock, buf, sizeof(buf));
     if (n < 0) { printf("Error:%d\n", errno); return 0; }
     if (n == 0) { printf("EOF\n"); return 0; }
