@@ -1,0 +1,11 @@
+#include <stdio.h>
+
+int main() {
+    FILE *fp;
+    fp = fopen("./output.txt", "w");
+    for (int i = 0; i < 10; i++) {
+        fprintf(fp, "Hello, World!! %d\n", i);
+    }
+    fclose(fp);
+    return 0;
+}
