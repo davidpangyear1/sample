@@ -1,0 +1,160 @@
+/*
+ * This file demonstrate how can we make linked list
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct linked_list_entry {
+    void *data;
+    struct linked_list_entry *next;
+} entry;
+
+entry *create_entry(void *data) {
+    entry *x = NULL;
+    x = malloc(sizeof(entry));
+    if (x == NULL) return NULL;
+    x->data = data;
+    x->next = NULL;
+    
+    return x;
+}
+
+typedef struct linked_list {
+    //store meta-data of list
+    int length;
+    entry *head;
+    entry *end;
+} list;
+
+list *create_list() {
+    list* ret;
+    ret = malloc(sizeof(list));
+    // create entry
+    ret->length = 0;
+    ret->head = NULL;
+    ret->end = NULL;
+    
+    return ret;
+}
+
+int print_list(list *l) {
+    if (l == NULL) return -1;
+    
+    for (entry* e = l->head; e != NULL; e = e->next)
+        printf("%d ", *((int *)(e->data)));
+    
+    printf("\n");
+    return l->length;
+}
+
+int add(list *l, void *item) {
+    entry *e = NULL;
+    e = malloc(sizeof(entry));
+    if (e == NULL) return -1;
+        
+    e->data = item;
+    e->next = NULL;
+        
+    if (l->length != 0) {
+        l->end->next = e;
+    }else{
+        l->head = e;
+    }
+    
+    l->end = e;
+    return (++(l->length));
+}
+/* 1*:data, 2*:pass by ref, 3*:null prevention(for output as argument) */
+int get(list *l, void ***ptr, int ind) {
+    if (l == NULL) return -1;
+    
+    if (ind >= l->length) return -2; //ind too large
+    
+    int i = 0;
+    void *data = NULL;
+    for (entry* e = l->head; e != NULL; e = e->next) {
+        if (i == ind) {
+            data = e->data;
+            break;
+        }
+        i++;
+    }
+    
+    *ptr  = &data;
+    
+    return ind;
+}
+int pop(list *l, void ***ptr) {
+    if (l == NULL) return -1;
+    
+    if (l->length == 0) return -2; //nothing to pop
+    
+    entry *data_entry = NULL;
+    data_entry = l->head;
+    
+    if (l->length != 1) {
+        l->head = l->head->next;
+    }
+    
+    void *data = NULL;
+    data = data_entry->data;
+    free(data_entry);
+    
+    *ptr = &data;
+    
+    return (--(l->length));
+}
+
+int main() {
+    int a = 112358;
+    int temp = 0;
+    int *ptr;
+    
+    /* test create entry */
+    entry *e = create_entry((void *)&a);
+    if (e == NULL) { printf("Create entry error\n"); return 0; }
+    free(e);
+    
+    /* test create list */
+    list *l = create_list();
+    print_list(l);
+    
+    /* test add */
+    int b[100];
+    for (int i = 0; i < 100; i++){
+        b[i] = i * 2;
+        temp = add(l, (void *) &b[i]);
+        if (temp < 0) { printf("Add entry error\n"); return 0; }
+    }
+    printf("%d\n", temp);
+    print_list(l);
+    printf("%d\n", l->length);
+    
+    /* test get */
+    void **data_addr = NULL;
+    // test 1
+    temp = get(l, &data_addr, 71);
+    if (temp < 0) { printf("Get entry error:%d\n", temp); return 0; }
+    ptr = (int *)(*data_addr);
+    printf("%d\n", *ptr);
+    // test 2
+    temp = get(l, &data_addr, 200);
+    printf("%d\n", temp);
+    
+    /* test pop */
+    for (int i = 0; i < 50; i++){
+        temp = pop(l, &data_addr);
+        if (temp < 0) { printf("Pop entry error\n"); return 0; }
+        ptr = (int *)(*data_addr);
+        printf("%d ", *ptr);
+    }
+    printf("\n");
+    printf("%d\n", temp);
+    print_list(l);
+    
+    /* do memory stress test by add-pop again and again */
+    
+    printf("Program done\n");
+    return 0;
+}
