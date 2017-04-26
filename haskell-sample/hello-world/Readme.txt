@@ -1,2 +1,2 @@
-> ghc -o hello hello-world.hs
-> ./hello
+> ghc -o hello-world hello-world.hs
+> ./hello-world
