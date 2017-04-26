@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h> /* POSIX thread library. You must also have '-lpthread' when compile. */
-#include <unistd.h> /* unix standard library, provide the sleep function */
+#include <unistd.h> /* provide the sleep function */
 
-void *thread_main(void *ptr);
+void *my_func(void *ptr);
 long get_tid();
 
 int STATUS_A = 1;
@@ -20,11 +20,11 @@ int main() {
     /* 
      * pthread_t* t         : Thread id is stored as &t.
      * pthread_attr_t* attr : Just set NULL
-     * function thread_main : Must accept a void*, and return a void*
-     * void* arg            : As argument of thread_main
+     * function my_func     : Must accept a void*, and return a void*
+     * void* arg            : As argument of my_func
      */
     printf("Create thread...\n");
-    temp = pthread_create(&t, NULL, thread_main, (void *)m);
+    temp = pthread_create(&t, NULL, my_func, (void *)m);
     if (temp != 0){
         fprintf(stderr, "Error on p_thread_create, %d\n", temp);
         exit(EXIT_FAILURE);
@@ -58,15 +58,15 @@ int main() {
 /*
  * function to be called by new thread, must accept a void* and return a void*
  */
-void *thread_main(void *ptr){
-    printf("Entering thread_main\n");
+void *my_func(void *ptr){
+    printf("Entering my_func\n");
     char *message;
     message = (char *) ptr;
     for (int i = 0; i < 5; i++){
         printf("Another Thread:%s...\n", message);
         sleep(1); /* makes the current thread to sleep */
     }
-    printf("thread_main end\n");
+    printf("my_func end\n");
 
     /*
      * WARNING!!!
