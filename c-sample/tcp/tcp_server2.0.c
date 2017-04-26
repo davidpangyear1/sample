@@ -13,7 +13,7 @@
 const int DEFAULT_PORT = 12345;
 const int BACKLOG = 5; /* Refuse connection if <BACKLOG> connection requests are waiting for accept */
 const int MAX_CLIENT = 10;
-char *MESSAGE = "HELLO\n";
+char *MESSAGE = "HELLO!!\n";
 
 void *connectionHandler(void *arg_ptr);
 char *getSocketAddr(int sock);
@@ -122,8 +122,9 @@ int main(int argc, char **argv) {
 
 void *connectionHandler(void *sock_ptr) {
     long tid = get_tid();
-    printf("%ld:Enter connection handler...\n", tid);
     int sock = *((int *)sock_ptr);
+
+    printf("%ld:Enter connection handler...\n", tid);
 
     /* Send message */
     /* printf("%ld:Send %s...\n", tid, msg); */

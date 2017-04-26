@@ -25,9 +25,12 @@ split the string\n";
 
         /* this way can define dynamic length */
         char *ptr = NULL;
-        ptr = malloc((5 + 1) * sizeof(char));
-        strncpy(ptr, "hello", 5);
+        int len = 5;
+        ptr = malloc((len + 1) * sizeof(char));
+        if (ptr == NULL) { printf("allocate memory fail!!!"); return 0; }
+        strncpy(ptr, "hello", len);
         printf("%s\n", ptr);
+        free(ptr); // free the memory
 
 	return 0;
 }

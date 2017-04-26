@@ -1,0 +1,56 @@
+Read [:help usr_28] for details
+
+zf : F-old creation
+zo : O-pen fold
+zc : C-lose fold
+
+{
+    place cursor here and type 'zfap' (no ':')
+    'ap' is a text object selection
+}
+
+Then You can open it by 'zo' and close it again by 'zc'.
+
+zr : R-educe folding level (whole file)
+zm : M-ore folding level (whole file)
+Or [:set foldlevel=3] directly
+
+place the cursor on '{' and type zf%,
+('%' is the 'match of {' movement. Hope you remember.)
+Then open it back.
+
+{
+    create nested fold by zf% on the following block.
+    Then open it back.
+    {
+        and then try zr and zm.
+    }
+}
+
+zO : zo all (under cursor)
+zC : zc all (under cursor)
+
+zR : zr all
+zm : zm all
+
+zn : no-folding immediately
+zN : reverse back zn
+
+zd : delete a fold (not the content!)
+zD : zd all (under cursor)
+
+zi : temporary open a fold, you should close it again by this.
+
+==========================================================================================
+you can yank, cut, paste, move over a fold as if it was a single line
+
+==========================================================================================
+save and load foldings:
+:mkview 1
+:loadview 1
+
+==========================================================================================
+foldmethod
+manual : default, use cursor movement to create fold
+indent : by indent, depends on the option shiftwidth. (use [:set option?] to view, hope you remember)
+syntax : e.g. brackets

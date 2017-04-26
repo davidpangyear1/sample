@@ -1,1 +1,3 @@
 Let's deal with the troublesome C string
+
+The C string is the most terrible thing I have ever seen...
