@@ -1,4 +1,4 @@
-all:hello.cpp
-    gcc hello.cpp -o hello.out
+all:hello.c
+    gcc hello.c -o hello.out
 clean:
     rm -f hello.out
