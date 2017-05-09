@@ -67,6 +67,13 @@ int main() {
     return 0;
 }
 
+/*
+ * return:
+ *     n(>0):strlen(read_msg)
+ *     0:EOF, no LF detected.
+ *     -1:Error (with errno)
+ *     -2:Line too long, discard.
+ */
 int interact(int sock, char *cmd) {
     int temp;
     //char send_msg[STRING_BUFFER_MAX];
@@ -82,11 +89,15 @@ int interact(int sock, char *cmd) {
     printf("Receive message line...\n");
     temp = read_line(sock, read_msg, STRING_BUFFER_MAX);
     if (temp > 0) printf(read_msg);
-    else if (temp == -2) printf("\nLine too long, discard.(max=%d)\n", STRING_BUFFER_MAX);
-    else if (temp == -1) { printf("\nError: %d\n", errno); return -1; }
-    else if (temp == 0) printf("\nEOF, no LF detected.\n");
+    else interact_error(temp);
     
     return 0;
+}
+
+void interact_error(int temp) {
+    if (temp == -2) printf("\nLine too long, discard.(max=%d)\n", STRING_BUFFER_MAX);
+    else if (temp == -1) printf("\nError: %d\n", errno);
+    else if (temp == 0) printf("\nEOF, no LF detected.\n");
 }
 
 int send_to(int sock, char *msg) {
@@ -108,17 +119,31 @@ int send_to(int sock, char *msg) {
  *     -2(Line too long)
  */
 int read_line(int sock, char *line_buf, int buflen) {
+    char c;
     char buf[1];
     int n;
     int i = 0;
     while (1) {
         n = read(sock, buf, 1);
         if (n <= 0) return n; // -1 or 0
+        c = buf[0];
 
-        line_buf[i] = buf[0];
+        if (c == '\0') continue;
+        if (c == '\r') continue;
+        
+        if ((c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || (c == ' ')
+            || (c == '\n')){
+                //Valid character
+            }
+        else continue;
+        
+        line_buf[i] = c;
         i++;
-
-        if (buf[0] == '\n') {
+        //trace: printf("%d\n", (int)buf[0]);
+        if (c == '\n') {
             line_buf[i] = '\0';
             return i;
         }
