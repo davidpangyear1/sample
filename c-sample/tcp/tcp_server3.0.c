@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <regex.h>
 
 #define STR_BUF_MAX 4096
 #define DEFAULT_PORT 12345
@@ -157,7 +158,8 @@ void *connectionHandler(void *input_ptr) {
     strcpy(msg3, tc_ptr->msg3);
     free(tc_ptr);
 
-    while (1) {
+    int flag_cont = 1;
+    while (flag_cont) {
         /* Read query from client */
         printf("%ld:Reading message from %d...\n", tid, sock);
         int n = read_line(sock, read_msg, STR_BUF_MAX);
@@ -165,8 +167,10 @@ void *connectionHandler(void *input_ptr) {
             /* Process input */
             printf("%ld:Get message, n=%d, %s...\n", tid, n, read_msg);
             if (strcmp(read_msg, "exit\n") == 0) {
-                printf("%ld:Exit...\n", tid);
-                break;
+                strcpy(send_msg, "exit received\n");
+                flag_cont = 0;
+            } else if (strcmp(read_msg, "heartbeat\n") == 0) {
+                strcpy(send_msg, "heartbeat received\n");
             } else if (strcmp(read_msg, "msg1\n") == 0) {
                 strcpy(send_msg, msg1);
             } else if (strcmp(read_msg, "msg2\n") == 0) {
@@ -196,7 +200,7 @@ void *connectionHandler(void *input_ptr) {
     }
     printf("%ld:Close client connection...\n", tid);
     close(sock);
-    
+
     return NULL;
 }
 
@@ -258,18 +262,31 @@ long get_tid() {
  *     -2(Line too long)
  */
 int read_line(int sock, char *line_buf, int buflen) {
+    char c;
     char buf[1];
     int n;
     int i = 0;
     while (1) {
         n = read(sock, buf, 1);
         if (n <= 0) return n; // -1 or 0
+        c = buf[0];
 
-        if (buf[0] == '\0') continue;
-        line_buf[i] = buf[0];
+        if (c == '\0') continue;
+        if (c == '\r') continue;
+        
+        if ((c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || (c == ' ')
+            || (c == '\n')){
+                //Valid character
+            }
+        else continue;
+        
+        line_buf[i] = c;
         i++;
-        printf("%d\n", (int)buf[0]);
-        if (buf[0] == '\n') {
+        //trace: printf("%d\n", (int)buf[0]);
+        if (c == '\n') {
             line_buf[i] = '\0';
             return i;
         }
