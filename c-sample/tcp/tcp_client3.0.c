@@ -10,6 +10,7 @@
 #define STRING_BUFFER_MAX 4096 /* include the '\0' char  */
 
 int interact(int sock, char *cmd);
+void interact_error(int error);
 int send_to(int sock, char *msg);
 int read_line(int sock, char *line_buf, int buflen);
 
