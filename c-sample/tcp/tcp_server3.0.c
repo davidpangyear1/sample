@@ -13,30 +13,156 @@
 #define STR_BUF_MAX 4096
 #define DEFAULT_PORT 12345
 #define BACKLOG 5 /* Refuse connection if <BACKLOG> connection requests are waiting for accept */
-#define MAX_CLIENT 10
-#define MAX_CONNECTION 20
+#define MAX_IP_COUNT 20
+
+unsigned int g_child_id = 0; //Globally managed child id
+int ipcompare(struct sockaddr_in *ip, struct sockaddr_in *ip_other);
 
 typedef struct {
-    pthread_mutex_t mutex;
-    int ind;
-    int is_using;
+    /* shared data */
+    volatile int is_alive;
+    unsigned int child_id;
 
-    pthread_t t;
-
-    struct sockaddr_in addr_client;
+    /* child data (write-once-only by parent, then read-only by child) */
     int sock;
-
     char msg1[4096];
     char msg2[4096];
     char msg3[4096];
 } T_CHILD_THREAD_DATA;
 
-T_CHILD_THREAD_DATA child_data_arr[MAX_CONNECTION];
+typedef struct {
+    struct sockaddr_in ip;
+    int conn_max;
+    pthread_mutex_t mutex; //protect child_arr
+    T_CHILD_THREAD_DATA *child_arr; //array of size conn_max
+} T_IP_CHILDREN;
 
-void init_child_data_arr();
-int new_child_data(T_CHILD_THREAD_DATA **ptr);
-void release_child_data(T_CHILD_THREAD_DATA *p);
+T_IP_CHILDREN ip_children[MAX_IP_COUNT];
+int ip_children_length = 0;
 
+/*
+ * Arguments:
+ *                 ip : allowed ip
+ *           conn_max : allowed maximum connections for this ip
+ *
+ * Return   :
+ *             n >= 0 : Success. n is the total count of allowed ip
+ *                 -1 : Invalid ip. Config repeated.
+ *                 -2 : Invalid conn_max. conn_max MUST >0
+ */
+int add_ip_children_config(struct sockaddr_in ip, int conn_max) {
+    if (ip_children_length >= MAX_IP_COUNT) return -1; //No rooms for new IP!!
+    
+    /* parse ip
+    struct sockaddr_in ip;
+    int temp = inet_pton(AF_INET, ip_str, &ip);
+    if (temp == 0) {
+        //Invalid IP address
+        return -1;
+    } else {
+        //Error, see errno
+        return -1;
+    }
+    */
+    
+    for (int i=0;i<ip_children_length; i++) {
+        if (ipcompare(&(ip_children[i].ip), &ip))
+            return -1; // config conflict
+    }
+    
+    if (conn_max < 0) return -2;
+
+    // All checking okay, new config entry!
+    T_IP_CHILDREN *entry = &(ip_children[ip_children_length]);
+    entry->conn_max = conn_max;
+    pthread_mutex_init(&(entry->mutex), NULL);
+    entry->child_arr = malloc(sizeof(T_CHILD_THREAD_DATA) * conn_max);
+    for (int i=0; i<conn_max; i++) {
+        T_CHILD_THREAD_DATA *data = &(entry->child_arr[i]);
+        data->is_alive = 0;
+    }
+    ip_children_length++;
+    return ip_children_length;
+}
+
+/*
+ * Arguments:
+ *            p : Address of pointer. That pointer will stores the data. WARNING: Won't check *p==NULL, please be careful by yourself!!!!
+ *           ip : incoming ip
+ *
+ * Return   :
+ *            1 : Success, you can read *p
+ *           -1 : Invalid ip, the incoming ip is NOT authorized in config.
+ *           -2 : Connections full. Too many alive connections for this ip. The connection maximum (being set in config) has been attained.
+ */
+int new_child(T_CHILD_THREAD_DATA **p, struct sockaddr_in ip) {
+    T_IP_CHILDREN *entry = NULL;
+    for (int i=0; i<ip_children_length; i++) {
+        T_IP_CHILDREN *e = &(ip_children[i]);
+        if (ipcompare(&(e->ip), &ip)) {
+            entry = e;
+            break;
+        }
+    }
+    
+    if (entry == NULL) return -1; // Invalid ip.
+    
+    int conn_max = entry->conn_max;
+    T_CHILD_THREAD_DATA *data = NULL;
+    
+    // Find non-alive child
+    for (int i=0; i<conn_max; i++) {
+        T_CHILD_THREAD_DATA *d = &(entry->child_arr[i]);
+        if (!(d->is_alive))
+            data = d;
+    }
+    
+    if (data == NULL) return -2; // All alive child, already conn_max!!
+    
+    // Write new child, need to lock (write, other might be reading)
+    pthread_mutex_lock(&(entry->mutex));
+    data->is_alive = 1;
+    data->child_id = g_child_id;
+    pthread_mutex_unlock(&(entry->mutex));
+    
+    g_child_id++;
+    
+    *p = data;
+    
+    return 1;
+}
+
+/*
+ * Arguments:
+ *            child_id : child id assigned
+ *
+ * Return   :
+ *            non-NULL : Success.
+ *            NULL     : child_id not found
+ */
+struct sockaddr_in *get_child_ip(unsigned int child_id) {
+    struct sockaddr_in *ret = NULL;
+    for (int i=0; i<ip_children_length; i++) {
+        T_IP_CHILDREN *entry = &(ip_children[i]);
+        pthread_mutex_lock(&(entry->mutex));
+        for (int j=0; j<entry->conn_max; j++) {
+            T_CHILD_THREAD_DATA *data = &(entry->child_arr[j]);
+            if (child_id == data->child_id) {
+                ret = &(entry->ip);
+                break;
+            }
+        }
+        pthread_mutex_unlock(&(entry->mutex));
+        if (ret != NULL) break;
+    }
+    
+    return ret;
+}
+
+int close_child(T_CHILD_THREAD_DATA *data) {
+    data->is_alive = 0;
+    return 1;
+}
 
 
 
@@ -54,7 +180,6 @@ void error(char *msg, int error_no) {
  *   Accept a port argument. If none, use DEFAULT_PORT.
  *   Will listen for clients and send them Hello.
  */
-
 int main(int argc, char **argv) {
     int sock_p; /* parent socket (file descriptor) */
     struct sockaddr_in addr; /* server address */
@@ -65,7 +190,8 @@ int main(int argc, char **argv) {
     
     int temp;
 
-    init_child_data_arr();
+    // Read config
+    // init_child_data_arr();
 
     /* check command line arguments */
     if (argc < 2) {
@@ -123,21 +249,21 @@ int main(int argc, char **argv) {
         printf("Received connection from %s...\n", inet_ntoa(addr_client.sin_addr));
 
         printf("Create child data...\n");
+        pthread_t child_thread;
         T_CHILD_THREAD_DATA *data=NULL;
-        temp = new_child_data(&data);
+        temp = new_child(&data, addr_client);
         if (temp < 0) {
             if (temp==-1) printf("Too many connections\n");
             close(sock_c);
             continue;
         }
-        data->addr_client = addr_client;
         data->sock = sock_c;
         strcpy(data->msg1, "HELLO! This is message 1.\n");
         strcpy(data->msg2, "HELLO! This is message 2.\n");
         strcpy(data->msg3, "HELLO! This is message 3.\n");
         
         printf("Create child thread...\n");
-        temp = pthread_create(&(data->t), NULL, connectionHandler, (void *)data);
+        temp = pthread_create(&(child_thread), NULL, connectionHandler, (void *)data);
         if (temp != 0) {
             close(sock_c);
             error("Error", temp);
@@ -145,7 +271,7 @@ int main(int argc, char **argv) {
         }
         
         printf("Detach child thread....\n");
-        temp = pthread_detach(data->t);
+        temp = pthread_detach(child_thread);
         if (temp != 0) {
             close(sock_c);
             error("Error", temp);
@@ -159,51 +285,6 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void init_child_data_arr() {
-    for (int i=0; i<MAX_CONNECTION; i++) {
-        T_CHILD_THREAD_DATA *p = &(child_data_arr[i]);
-        pthread_mutex_init(&(p->mutex), NULL);
-        p->ind = i;
-        p->is_using = 0;
-    }
-}
-
-// Don't check null pointer. Please be careful yourself.
-// -1: "too many connections";
-int new_child_data(T_CHILD_THREAD_DATA **ptr) {
-    T_CHILD_THREAD_DATA *ret;
-    int conn_max;
-    int ind = -1;
-    int conn_count = 0;
-    
-    conn_max = MAX_CLIENT;
-    
-    //Count current connections
-    for (int i=0; i<MAX_CONNECTION; i++) pthread_mutex_lock(&(child_data_arr[i].mutex));
-    for (int i=0; i<MAX_CONNECTION; i++)  {
-        T_CHILD_THREAD_DATA *data = &(child_data_arr[i]);
-        if (data->is_using) {
-            conn_count++;
-        } else {
-            // Just remember ind here, to reduce the locking time.
-            if (ind == -1) ind = i; // The checking is not necessary.
-        }
-    }
-    for (int i=0; i<MAX_CONNECTION; i++) pthread_mutex_unlock(&(child_data_arr[i].mutex));
-    
-    if (conn_count > conn_max) return -1;
-    ret = &(child_data_arr[ind]);
-    ret->is_using = 1;
-    
-    *ptr = ret;
-    
-    return 0;
-}
-
-void release_child_data(T_CHILD_THREAD_DATA *p) {
-    p->is_using = 0;
-}
-
 void *connectionHandler(void *input_ptr) {
     long tid = get_tid();
     T_CHILD_THREAD_DATA* child_data = (T_CHILD_THREAD_DATA *)input_ptr;
@@ -211,7 +292,9 @@ void *connectionHandler(void *input_ptr) {
     char read_msg[STR_BUF_MAX];
     char send_msg[STR_BUF_MAX];
     
+    int child_id;
     int sock;
+    struct sockaddr_in *addr_client_ptr;
     char msg1[STR_BUF_MAX];
     char msg2[STR_BUF_MAX];
     char msg3[STR_BUF_MAX];
@@ -219,15 +302,16 @@ void *connectionHandler(void *input_ptr) {
     printf("%ld:Enter connection handler...\n", tid);
     
     printf("%ld:Reading child_data...\n", tid);
+    child_id = child_data->child_id;
     sock = child_data->sock;
+    addr_client_ptr = get_child_ip(child_id);
     strcpy(msg1, child_data->msg1);
     strcpy(msg2, child_data->msg2);
     strcpy(msg3, child_data->msg3);
-    printf("%ld:child=%d, is_using=%d, &t=%p, ip=%s, %d...\n", tid,
-        child_data->ind,
-        child_data->is_using,
-        &(child_data->t),
-        inet_ntoa(child_data->addr_client.sin_addr),
+    printf("%ld:child_id=%d, is_alive=%d, ip=%s, sock=%d...\n", tid,
+        child_data->child_id,
+        child_data->is_alive,
+        inet_ntoa(addr_client_ptr->sin_addr),
         child_data->sock
     );
     
@@ -274,7 +358,7 @@ void *connectionHandler(void *input_ptr) {
     printf("%ld:Close client connection...\n", tid);
     close(sock);
 
-    release_child_data(child_data);
+    close_child(child_data);
     return NULL;
 }
 
@@ -370,4 +454,16 @@ long get_tid() {
     self_t = pthread_self();
     long ret = (long)&self_t;
     return ret;
+}
+
+/*
+ * Return 1 if same ip and use AF_INET, otherwise return 0.
+ */
+int ipcompare(struct sockaddr_in *ip, struct sockaddr_in *ip_other) {
+    if ((ip->sin_addr.s_addr == ip_other->sin_addr.s_addr)
+     && (ip->sin_family == ip_other->sin_family)
+     && (ip->sin_family == AF_INET)) {
+        return 1;
+    }
+    return 0;
 }
