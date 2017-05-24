@@ -1,0 +1,21 @@
+Simple way
+(n) 0 d  0 0 0
+[>+>-[>>>]<[[>+<-]>>+>]<<<<-]
+(0) r dr q 0 0 
+
+Return q as first
+0 (n) d  0 0 0
+[>-[>+>>]<[<+>>+>[<+>-]>]<<<-]
+q (0) dr r 0 0
+
+For Euclidean Algorithm
+0 (n) 0 d  0 0 0
+[>>-[>+>]>[<<<<+>>>+>[<+>-]>>]<<<<<-]
+q (0) 0 dr r 0 0
+
+Euclidean Algorithm
+0 n 0 (d) 0 0 0
+[<<[>>-[>+>]>[<<<<+>>>+>[<+>-]>>]<<<<<-]>>>[<+<<+>>>>+<-]>]
+q0 r0 q1 r1 (so on) qn=0 rn=gcd 0 (0)
+
+(Can reduce size if you only need gcd and qs)
